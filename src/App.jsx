@@ -6,15 +6,7 @@ import Spinner from './components/Spinner.jsx';
 import { getTrendingMovies, updateSearchCount } from './appwrite.js';
 
 const API_BASE_URL = 'https://api.themoviedb.org/3';
-const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
-
-const API_OPTIONS = {
-  method: 'GET',
-  headers: {
-    accept: 'application/json',
-    Authorization: `Bearer ${API_KEY}`
-  }
-};
+const LOCAL_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
 const App = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,11 +25,27 @@ const App = () => {
     setErrorMessage('');
 
     try {
-      const endpoint = query
-        ? `${API_BASE_URL}/search/movie?query=${encodeURIComponent(query)}`
-        : `${API_BASE_URL}/discover/movie?sort_by=popularity.desc`;
+      const isLocal = window.location.hostname === 'localhost';
 
-      const response = await fetch(endpoint, API_OPTIONS);
+      const endpoint = isLocal
+        ? query
+          ? `${API_BASE_URL}/search/movie?query=${encodeURIComponent(query)}`
+          : `${API_BASE_URL}/discover/movie?sort_by=popularity.desc`
+        : query
+          ? `/api/movies?query=${encodeURIComponent(query)}`
+          : `/api/movies`;
+
+      const options = isLocal
+        ? {
+            method: 'GET',
+            headers: {
+              accept: 'application/json',
+              Authorization: `Bearer ${LOCAL_API_KEY}`,
+            },
+          }
+        : undefined;
+
+      const response = await fetch(endpoint, options);
 
       if (!response.ok) {
         throw new Error('Failed to fetch movies');
@@ -67,8 +75,8 @@ const App = () => {
   const loadTrendingMovies = async () => {
     try {
       const movies = await getTrendingMovies();
-      const filtered = movies.filter(m => m.poster_url); // ✅ skip broken images
-      setTrendingMovies(filtered.slice(0, 5)); // ✅ only top 5
+      const filtered = movies.filter((m) => m.poster_url);
+      setTrendingMovies(filtered.slice(0, 5));
     } catch (error) {
       console.error(`Error fetching trending movies: ${error}`);
     }
@@ -81,10 +89,6 @@ const App = () => {
   useEffect(() => {
     loadTrendingMovies();
   }, []);
-
-  console.log('🌟 App is running!');
-  console.log('Trending movies:', trendingMovies);
-  console.log('Movie list:', movieList);
 
   return (
     <main>
